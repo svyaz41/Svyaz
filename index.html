@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Связь (Svyaz)</title>
+    <style>
+        /* TEMA AYARLARI */
+        :root { 
+            --primary-grad: linear-gradient(135deg, #FF416C 0%, #FF4B2B 100%);
+            --msg-mine-bg: #FF4B2B; /* Koyu Turuncu/Kırmızı */
+            --msg-mine-text: #ffffff; /* Beyaz Yazı */
+            --msg-theirs-bg: #ffffff;
+            --msg-theirs-text: #333;
+            --bg-color: #f2f2f2;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; outline: none; }
+        body { margin: 0; background: var(--bg-color); height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+
+        /* BİLDİRİM (TOAST) */
+        #notify-area { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: white; border-left: 5px solid #FF4B2B; padding: 15px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transform: translateX(150%); transition: 0.3s; }
+        .toast.show { transform: translateX(0); }
+
+        /* GİRİŞ EKRANI (Aynı kaldı) */
+        .auth-card { background: white; width: 400px; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+        .hidden { display: none !important; }
+        input.auth-inp { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; }
+        button.auth-btn { width: 100%; padding: 12px; background: var(--primary-grad); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        
+        /* ANA UYGULAMA */
+        .app-container { display: none; width: 95vw; height: 90vh; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: flex; }
+        
+        /* SOL MENÜ (KİŞİLER) */
+        .sidebar { width: 320px; background: #fff; border-right: 1px solid #eee; display: flex; flex-direction: column; }
+        .my-profile { padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; background: #fafafa; }
+        .my-img { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #FF4B2B; }
+        
+        .search-area { padding: 10px; border-bottom: 1px solid #eee; display:flex; gap:5px; }
+        .search-area input { flex:1; padding:8px; border:1px solid #ddd; border-radius:5px; }
+        
+        .contact-list { flex: 1; overflow-y: auto; }
+        .contact { padding: 15px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s; border-bottom: 1px solid #f9f9f9; }
+        .contact:hover { background: #ffece6; }
+        .contact.active { background: #ffe0d6; border-left: 4px solid #FF4B2B; }
+        .c-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; }
+
+        /* SAĞ TARAF (CHAT PENCERESİ) */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #fff5f2; position: relative; }
+        
+        /* Chat Başlığı */
+        .chat-header { height: 60px; background: white; border-bottom: 1px solid #eee; display: flex; align-items: center; padding: 0 20px; gap: 10px; font-weight: bold; color: #333; }
+        
+        /* Mesaj Kutusu */
+        #msg-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        /* BOŞ DURUM (Mesaj yokken) */
+        .empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; opacity:0.5; }
+        .empty-state img { width: 100px; margin-bottom: 20px; filter: grayscale(100%); }
+
+        /* MESAJ BALONCUKLARI */
+        .bubble-row { display: flex; flex-direction: column; max-width: 70%; position: relative; }
+        .bubble-row.mine { align-self: flex-end; align-items: flex-end; }
+        .bubble-row.theirs { align-self: flex-start; align-items: flex-start; }
+        
+        .bubble { 
+            padding: 10px 14px; border-radius: 12px; font-size: 15px; position: relative; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); min-width: 80px;
+        }
+        
+        /* Renkler */
+        .mine .bubble { background: var(--msg-mine-bg); color: var(--msg-mine-text); border-bottom-right-radius: 2px; }
+        .theirs .bubble { background: var(--msg-theirs-bg); color: var(--msg-theirs-text); border-bottom-left-radius: 2px; }
+
+        /* Mesaj Menüsü (...) */
+        .msg-menu-btn { 
+            position: absolute; top: 5px; right: 8px; font-size: 16px; cursor: pointer; 
+            opacity: 0.6; display: none; color: inherit; 
+        }
+        .bubble:hover .msg-menu-btn { display: block; }
+        
+        /* Açılan Menü */
+        .ctx-menu {
+            position: absolute; top: 25px; right: 0; background: white; border-radius: 8px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); z-index: 100; overflow: hidden; min-width: 100px;
+            display: none; flex-direction: column;
+        }
+        .ctx-menu.open { display: flex; }
+        .ctx-item { padding: 8px 12px; font-size: 13px; cursor: pointer; color: #333; display: flex; align-items: center; gap: 5px; }
+        .ctx-item:hover { background: #f0f0f0; }
+        .ctx-item.del { color: red; }
+
+        /* Yanıtlanan Mesaj */
+        .reply-preview { 
+            font-size: 11px; margin-bottom: 4px; padding: 4px 8px; border-radius: 6px; 
+            background: rgba(0,0,0,0.1); border-left: 3px solid rgba(0,0,0,0.3); width: 100%;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .mine .reply-preview { background: rgba(255,255,255,0.2); border-left-color: white; color: #ffecec; }
+
+        /* Medya Görselleri */
+        .msg-img { max-width: 100%; border-radius: 8px; margin-top: 5px; cursor: pointer; }
+        
+        /* GİRİŞ ALANI (Input Bar) */
+        .input-bar { background: white; padding: 10px 20px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #eee; }
+        
+        /* Yanıtlıyorsak üstte çıkan bar */
+        #reply-bar { background: #fff3cd; padding: 8px 20px; font-size: 13px; display: none; align-items: center; justify-content: space-between; border-top: 1px solid #eee; }
+        
+        /* Butonlar */
+        .icon-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #888; transition: 0.2s; padding: 5px; }
+        .icon-btn:hover { color: #FF4B2B; }
+        .icon-btn.recording { color: red; animation: pulse 1s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        #m-input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+        .send-btn { width: 45px; height: 45px; background: var(--primary-grad); border: none; border-radius: 50%; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+        /* Kalp (Beğeni) */
+        .reaction { position: absolute; bottom: -8px; right: 10px; background: white; border-radius: 10px; padding: 2px 5px; font-size: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+    </style>
+</head>
+<body>
+
+    <div id="notify-area"></div>
+
+    <div id="auth-box" class="auth-card">
+        <img src="svyaz.jpg" style="width:80px; height:80px; border-radius:50%; object-fit:cover; margin-bottom:15px;">
+        <h2 id="auth-title" style="color:#FF4B2B;">Вход (Giriş)</h2>
+        <div id="login-fields">
+            <input type="email" id="email" class="auth-inp" placeholder="Email">
+            <input type="password" id="pass" class="auth-inp" placeholder="Пароль">
+            <button class="auth-btn" onclick="handleAuth()">Войти</button>
+            <p style="font-size:12px; cursor:pointer; color:#777;" onclick="toggleReg(true)">Нет аккаунта? <b style="color:#FF4B2B">Регистрация</b></p>
+        </div>
+        <div id="reg-fields" class="hidden">
+            <input type="text" id="r-name" class="auth-inp" placeholder="Имя Фамилия">
+            <input type="email" id="r-email" class="auth-inp" placeholder="Email">
+            <input type="password" id="r-pass" class="auth-inp" placeholder="Пароль">
+            <button class="auth-btn" onclick="handleRegister()">Создать</button>
+            <p style="font-size:12px; cursor:pointer; color:#777;" onclick="toggleReg(false)">Есть аккаунт? <b style="color:#FF4B2B">Войти</b></p>
+        </div>
+    </div>
+
+    <div id="app-box" class="app-container" style="display:none;"> <div class="sidebar">
+            <div class="my-profile">
+                <img id="my-pic" class="my-img" src="user.jpg">
+                <div style="flex:1;">
+                    <b id="my-name">...</b>
+                    <div style="font-size:11px; color:green;">● Онлайн</div>
+                </div>
+                <button onclick="logout()" style="border:none; background:#eee; padding:5px 10px; border-radius:5px; cursor:pointer;">Exit</button>
+            </div>
+            
+            <div class="search-area">
+                <input type="text" id="search-email" placeholder="Email arkadaş (поиск)...">
+                <button onclick="addFriend()" style="background:#333; color:white; border:none; border-radius:5px; cursor:pointer;">+</button>
+            </div>
+
+            <div id="contact-list" class="contact-list"></div>
+        </div>
+
+        <div class="chat-area">
+            <div class="chat-header">
+                <img id="header-pic" src="user.jpg" style="width:35px; height:35px; border-radius:50%; display:none;">
+                <span id="header-name">Связь Мессенджер</span>
+            </div>
+
+            <div id="msg-box">
+                <div class="empty-state">
+                    <img src="svyaz.jpg" style="width:120px; height:120px; border-radius:50%; opacity:0.2;">
+                    <p style="color:#999;">Выберите чат для начала общения</p>
+                </div>
+            </div>
+
+            <div id="reply-bar">
+                <span id="reply-text">Yanıtlanıyor...</span>
+                <span onclick="cancelReply()" style="cursor:pointer; font-weight:bold;">✕</span>
+            </div>
+
+            <div class="input-bar">
+                <input type="file" id="img-input" accept="image/*" hidden onchange="handleImageSend()">
+                <button class="icon-btn" onclick="document.getElementById('img-input').click()">📷</button>
+                
+                <button class="icon-btn" id="mic-btn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec()" ontouchend="stopRec()">🎤</button>
+                
+                <input type="text" id="m-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendText()">
+                
+                <button class="send-btn" onclick="sendText()">➤</button>
+            </div>
+        </div>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, addDoc, onSnapshot, orderBy, serverTimestamp, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDlbZNVIwsil9giSY0v1ZXC2cVQlWe1UoE",
+        authDomain: "svyaz-69347.firebaseapp.com",
+        projectId: "svyaz-69347",
+        storageBucket: "svyaz-69347.firebasestorage.app",
+        messagingSenderId: "1074322271406",
+        appId: "1:1074322271406:web:9b032f610557a9e131d13f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let myData = null;
+    let activeFriend = null;
+    let msgUnsub = null;
+    let replyTo = null; // Hangi mesaja cevap veriyoruz?
+    let mediaRecorder = null;
+    let audioChunks = [];
+
+    // --- BİLDİRİM GÖSTER ---
+    window.notify = (msg) => {
+        const area = document.getElementById('notify-area');
+        const div = document.createElement('div');
+        div.className = 'toast';
+        div.innerText = msg;
+        area.appendChild(div);
+        setTimeout(() => div.classList.add('show'), 10);
+        setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 300); }, 3000);
+    };
+
+    // --- AUTH ---
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            const snap = await getDoc(doc(db, "users", user.uid));
+            if (snap.exists()) {
+                myData = snap.data();
+                showApp();
+                loadContacts(); // Kişileri yükle
+            }
+        } else {
+            document.getElementById('auth-box').classList.remove('hidden');
+            document.getElementById('app-box').style.display = 'none';
+        }
+    });
+
+    window.toggleReg = (val) => {
+        document.getElementById('login-fields').classList.toggle('hidden', val);
+        document.getElementById('reg-fields').classList.toggle('hidden', !val);
+    };
+
+    window.handleAuth = async () => {
+        try {
+            await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('pass').value);
+        } catch (e) { notify("Ошибка: " + e.message); }
+    };
+
+    window.handleRegister = async () => {
+        try {
+            const email = document.getElementById('r-email').value;
+            const res = await createUserWithEmailAndPassword(auth, email, document.getElementById('r-pass').value);
+            await setDoc(doc(db, "users", res.user.uid), {
+                uid: res.user.uid,
+                email: email,
+                name: document.getElementById('r-name').value,
+                photo: "user.jpg"
+            });
+            notify("Kayıt Başarılı!");
+        } catch (e) { notify("Ошибка: " + e.message); }
+    };
+
+    window.logout = () => signOut(auth);
+
+    function showApp() {
+        document.getElementById('auth-box').classList.add('hidden');
+        document.getElementById('app-box').style.display = 'flex';
+        document.getElementById('my-name').innerText = myData.name;
+    }
+
+    // --- KİŞİLER (KALICI LİSTE) ---
+    window.addFriend = async () => {
+        const email = document.getElementById('search-email').value;
+        const q = query(collection(db, "users"), where("email", "==", email));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+            const userToAdd = snap.docs[0].data();
+            if (userToAdd.uid === myData.uid) return notify("Это вы! (Bu sensin)");
+
+            // Veritabanına kaydet (Kalıcılık için)
+            await setDoc(doc(db, "users", myData.uid, "contacts", userToAdd.uid), userToAdd);
+            notify("Добавлен! (Eklendi)");
+            document.getElementById('search-email').value = "";
+        } else {
+            notify("Kullanıcı bulunamadı");
+        }
+    };
+
+    function loadContacts() {
+        // Kişiler koleksiyonunu dinle
+        onSnapshot(collection(db, "users", myData.uid, "contacts"), (snap) => {
+            const list = document.getElementById('contact-list');
+            list.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                const div = document.createElement('div');
+                div.className = 'contact';
+                div.innerHTML = `<img src="${u.photo || 'user.jpg'}" class="c-avatar"> <b>${u.name}</b>`;
+                div.onclick = () => openChat(u, div);
+                list.appendChild(div);
+            });
+        });
+    }
+
+    // --- CHAT FONKSİYONLARI ---
+    async function openChat(friend, el) {
+        activeFriend = friend;
+        
+        // UI Güncelle
+        document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+        if(el) el.classList.add('active');
+
+        document.getElementById('header-pic').style.display = 'block';
+        document.getElementById('header-pic').src = friend.photo || 'user.jpg';
+        document.getElementById('header-name').innerText = friend.name;
+
+        // Mesajları Dinle
+        const chatID = [myData.uid, friend.uid].sort().join("_");
+        if (msgUnsub) msgUnsub();
+
+        const q = query(collection(db, "chats", chatID, "messages"), orderBy("time", "asc"));
+        msgUnsub = onSnapshot(q, (snap) => {
+            const box = document.getElementById('msg-box');
+            box.innerHTML = "";
+            if(snap.empty) {
+                box.innerHTML = '<div class="empty-state"><p>Нет сообщений / Mesaj yok</p></div>';
+                return;
+            }
+            
+            snap.forEach(docSnap => {
+                renderMessage(docSnap, box);
+            });
+            box.scrollTop = box.scrollHeight;
+        });
+    }
+
+    // --- MESAJ OLUŞTURMA (RENDER) ---
+    function renderMessage(docSnap, container) {
+        const m = docSnap.data();
+        const msgId = docSnap.id;
+        const isMine = m.from === myData.uid;
+
+        const row = document.createElement('div');
+        row.className = `bubble-row ${isMine ? 'mine' : 'theirs'}`;
+
+        let contentHtml = "";
+
+        // Yanıtlanan mesaj varsa
+        if (m.replyTo) {
+            contentHtml += `<div class="reply-preview">↩️ ${m.replyTo.text.substring(0, 20)}...</div>`;
+        }
+
+        // İçerik Tipi (Text, Resim, Ses)
+        if (m.type === 'image') {
+            contentHtml += `<img src="${m.content}" class="msg-img" onclick="window.open(this.src)">`;
+        } else if (m.type === 'audio') {
+            contentHtml += `<audio controls src="${m.content}" style="max-width:200px; margin-top:5px;"></audio>`;
+        } else {
+            contentHtml += `<span>${m.content}</span>`;
+        }
+
+        // Kalp (Beğeni)
+        if (m.likes && m.likes > 0) {
+            contentHtml += `<div class="reaction">❤️ ${m.likes}</div>`;
+        }
+
+        // Mesaj Menüsü (...)
+        const menuHtml = `
+            <div class="msg-menu-btn" onclick="toggleMenu('${msgId}')">⋮</div>
+            <div id="menu-${msgId}" class="ctx-menu">
+                <div class="ctx-item" onclick="replyMsg('${m.content}', '${msgId}')">↩️ Ответить</div>
+                <div class="ctx-item" onclick="likeMsg('${msgId}', ${m.likes || 0})">❤️ Лайк</div>
+                ${isMine ? `<div class="ctx-item del" onclick="deleteMsg('${msgId}')">🗑️ Удалить</div>` : ''}
+            </div>
+        `;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = contentHtml + menuHtml;
+
+        row.appendChild(bubble);
+        container.appendChild(row);
+    }
+
+    // --- MENU İŞLEMLERİ ---
+    window.toggleMenu = (id) => {
+        const m = document.getElementById(`menu-${id}`);
+        // Diğer açık menüleri kapat
+        document.querySelectorAll('.ctx-menu').forEach(el => {
+            if(el.id !== `menu-${id}`) el.classList.remove('open');
+        });
+        m.classList.toggle('open');
+    };
+
+    window.deleteMsg = async (msgId) => {
+        if(!confirm("Удалить? / Silinsin mi?")) return;
+        const chatID = [myData.uid, activeFriend.uid].sort().join("_");
+        await deleteDoc(doc(db, "chats", chatID, "messages", msgId));
+    };
+
+    window.likeMsg = async (msgId, currentLikes) => {
+        const chatID = [myData.uid, activeFriend.uid].sort().join("_");
+        await updateDoc(doc(db, "chats", chatID, "messages", msgId), {
+            likes: currentLikes + 1
+        });
+        document.getElementById(`menu-${msgId}`).classList.remove('open');
+    };
+
+    window.replyMsg = (text, id) => {
+        replyTo = { text: text, id: id };
+        document.getElementById('reply-bar').style.display = 'flex';
+        document.getElementById('reply-text').innerText = `Otvet: ${text.substring(0, 30)}...`;
+        document.getElementById(`menu-${id}`).classList.remove('open');
+    };
+
+    window.cancelReply = () => {
+        replyTo = null;
+        document.getElementById('reply-bar').style.display = 'none';
+    };
+
+    // --- GÖNDERME İŞLEMLERİ ---
+    async function sendMessage(content, type) {
+        if (!activeFriend) return notify("Выберите чат! / Chat seçin");
+
+        const chatID = [myData.uid, activeFriend.uid].sort().join("_");
+        
+        const payload = {
+            content: content,
+            type: type || 'text',
+            from: myData.uid,
+            time: serverTimestamp(),
+            likes: 0
+        };
+
+        if (replyTo) {
+            payload.replyTo = replyTo;
+            cancelReply();
+        }
+
+        try {
+            await addDoc(collection(db, "chats", chatID, "messages"), payload);
+        } catch (e) {
+            console.error(e);
+            notify("Hata: Dosya çok büyük olabilir (Max 1MB)");
+        }
+    }
+
+    window.sendText = () => {
+        const inp = document.getElementById('m-input');
+        if(!inp.value.trim()) return;
+        sendMessage(inp.value, 'text');
+        inp.value = "";
+    };
+
+    // FOTOĞRAF
+    window.handleImageSend = () => {
+        const file = document.getElementById('img-input').files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = () => sendMessage(reader.result, 'image');
+        reader.readAsDataURL(file);
+    };
+
+    // SES KAYDI
+    window.startRec = async () => {
+        document.getElementById('mic-btn').classList.add('recording');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.start();
+        } catch(e) { 
+            notify("Mikrofon izni yok!");
+            document.getElementById('mic-btn').classList.remove('recording');
+        }
+    };
+
+    window.stopRec = () => {
+        if (!mediaRecorder || mediaRecorder.state === "inactive") return;
+        document.getElementById('mic-btn').classList.remove('recording');
+        mediaRecorder.stop();
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.onload = () => sendMessage(reader.result, 'audio');
+            reader.readAsDataURL(blob);
+        };
+    };
+
+    // Ekranın herhangi bir yerine tıklayınca açık menüleri kapat
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.msg-menu-btn') && !e.target.closest('.ctx-menu')) {
+            document.querySelectorAll('.ctx-menu').forEach(el => el.classList.remove('open'));
+        }
+    });
+
+</script>
+</body>
+</html>
