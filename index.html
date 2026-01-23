@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Связь</title>
+    <style>
+        /* --- TEMA VE TASARIM AYARLARI --- */
+        :root {
+            --bg-body: #F2F2F7;
+            --bg-sidebar: #FFFFFF;
+            --bg-chat: #E5DDD5;
+            --bg-message-in: #FFFFFF;
+            --bg-message-out: #DCF8C6;
+            --text-main: #000000;
+            --text-secondary: #8E8E93;
+            --accent-color: #007AFF;
+            --danger-color: #FF3B30;
+            --success-color: #4CD964;
+            --input-bg: #F2F2F7;
+            --border-color: #E5E5EA;
+            --modal-bg: #F2F2F7;
+            --item-bg: #FFFFFF;
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #000000;
+            --bg-sidebar: #1C1C1E;
+            --bg-chat: #0f0f0f;
+            --bg-message-in: #2C2C2E;
+            --bg-message-out: #005C4B;
+            --text-main: #FFFFFF;
+            --text-secondary: #98989D;
+            --accent-color: #0A84FF;
+            --input-bg: #2C2C2E;
+            --border-color: #38383A;
+            --modal-bg: #000000;
+            --item-bg: #1C1C1E;
+        }
+
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; outline: none; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: var(--bg-body); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* UI Bileşenleri */
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; z-index: 9999; display: none; }
+        .show { display: block; animation: fadein 0.3s; }
+        @keyframes fadein { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+        /* Giriş Ekranı */
+        #auth-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-body); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        
+        /* GÜNCELLENDİ: position: relative eklendi */
+        .auth-card { position: relative; background: var(--bg-sidebar); padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        .auth-input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); }
+        .auth-btn { width: 100%; padding: 12px; background: var(--accent-color); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        
+        /* Ana Uygulama Yapısı */
+        #app-container { display: none; width: 100%; height: 100%; display: flex; }
+        .sidebar { width: 350px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .chat-area { flex: 1; background: var(--bg-chat); display: flex; flex-direction: column; position: relative; }
+
+        /* Sidebar Elemanları */
+        .header-me { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .me-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #ddd; }
+        .search-bar { padding: 10px; display: flex; gap: 5px; }
+        .contact-list { flex: 1; overflow-y: auto; }
+        .contact-item { padding: 10px 15px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid transparent; }
+        .contact-item:hover { background: var(--input-bg); }
+        .c-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #ccc; }
+
+        /* Sohbet Görünümü */
+        #chat-view { display: none; flex-direction: column; height: 100%; }
+        #empty-view { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-secondary); }
+        #empty-view img { width: 100px; opacity: 0.5; margin-bottom: 20px; filter: grayscale(100%); }
+
+        .chat-header { height: 60px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; padding: 0 15px; gap: 10px; justify-content: space-between; }
+        .chat-info { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
+        #messages-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 5px; background-image: url('https://web.telegram.org/img/bg_0.png'); background-blend-mode: overlay; }
+        
+        .msg-row { display: flex; flex-direction: column; max-width: 75%; position: relative; }
+        .msg-row.mine { align-self: flex-end; align-items: flex-end; }
+        .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
+        
+        .bubble { padding: 8px 12px; border-radius: 10px; font-size: 15px; position: relative; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .mine .bubble { background: var(--bg-message-out); color: black; border-top-right-radius: 2px; }
+        .theirs .bubble { background: var(--bg-message-in); color: var(--text-main); border-top-left-radius: 2px; }
+        
+        .msg-img { max-width: 100%; border-radius: 8px; max-height: 300px; cursor: pointer; }
+        .msg-video { max-width: 100%; border-radius: 8px; max-height: 300px; }
+        
+        /* Input Alanı */
+        .input-area { background: var(--bg-sidebar); padding: 8px; display: flex; align-items: flex-end; gap: 8px; border-top: 1px solid var(--border-color); position: relative; }
+        .text-input { flex: 1; background: var(--input-bg); border: none; border-radius: 18px; padding: 10px 15px; font-size: 15px; color: var(--text-main); resize: none; height: 40px; max-height: 100px; }
+        
+        /* Engelleme Uyarı Bannerı */
+        .blocked-banner { 
+            display: none; 
+            background: #ffdddd; 
+            color: #d8000c; 
+            padding: 15px; 
+            text-align: center; 
+            font-weight: bold; 
+            border-top: 1px solid #ffbaba;
+            align-items: center; 
+            justify-content: center;
+        }
+
+        .tool-btn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 5px; color: var(--text-secondary); transition: 0.2s; }
+        .tool-btn:hover { color: var(--accent-color); }
+        .tool-btn.recording { color: red; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        .send-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-color); color: white; border: none; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+
+        /* Emoji Picker */
+        .emoji-picker { position: absolute; bottom: 60px; left: 10px; background: var(--bg-sidebar); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; display: none; grid-template-columns: repeat(6, 1fr); gap: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); width: 250px; height: 200px; overflow-y: auto; z-index: 50; }
+        .emoji-item { font-size: 24px; cursor: pointer; text-align: center; padding: 5px; }
+        .emoji-item:hover { background: var(--input-bg); border-radius: 5px; }
+
+        /* Modallar */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--modal-bg); padding: 0; border-radius: 15px; width: 90%; max-width: 400px; color: var(--text-main); overflow: hidden; max-height: 90vh; display: flex; flex-direction: column; }
+        .user-select-list { max-height: 200px; overflow-y: auto; margin: 10px 0; border: 1px solid var(--border-color); border-radius: 5px; background: var(--bg-sidebar); }
+        .user-select-item { padding: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .user-select-item.selected { background: rgba(0,122,255,0.1); }
+        .user-select-item.selected::after { content: '✓'; margin-left: auto; color: var(--accent-color); }
+
+        /* AYARLAR MENÜSÜ CSS */
+        .settings-header { padding: 15px 20px; font-size: 20px; font-weight: bold; background: var(--bg-sidebar); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .settings-body { padding: 20px; overflow-y: auto; }
+        
+        .settings-group { background: var(--item-bg); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+        .settings-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 16px; transition: background 0.2s; }
+        .settings-item:last-child { border-bottom: none; }
+        .settings-item:hover { background: rgba(128,128,128, 0.1); }
+        
+        .settings-icon { margin-right: 12px; font-size: 18px; width: 25px; text-align: center; }
+        .settings-label { flex: 1; }
+        .settings-arrow { color: var(--text-secondary); font-size: 14px; }
+        .settings-value { color: var(--text-secondary); margin-right: 8px; font-size: 15px; }
+
+        .settings-btn { width: 100%; padding: 15px; text-align: center; color: var(--danger-color); font-weight: bold; cursor: pointer; background: var(--item-bg); border-radius: 10px; margin-bottom: 10px; }
+
+        /* iOS Switch */
+        .ios-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .ios-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success-color); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* --- YENİ ARAMA TASARIMI (MODERN & ŞIK) --- */
+        .call-overlay { 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background-color: #000000; 
+            z-index: 2000; 
+            display: none; 
+            /* Flex ile her şeyi yöneteceğiz */
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+        }
+        
+        /* Video Elementleri */
+        #remote-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1900; display: none; }
+        #local-video { position: absolute; top: 80px; right: 20px; width: 100px; height: 150px; object-fit: cover; border-radius: 15px; border: 2px solid rgba(255,255,255,0.3); z-index: 2100; display: none; transform: scaleX(-1); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+
+        /* Üst Sol Bilgi Çubuğu (Sayaç ve İsim) */
+        .call-info-bar {
+            position: absolute;
+            top: 40px;
+            left: 20px;
+            background: rgba(44, 44, 46, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 8px 15px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 2200;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+        .info-text { display: flex; flex-direction: column; justify-content: center; }
+        .info-name { font-size: 14px; font-weight: bold; line-height: 1.2; }
+        .info-timer { font-size: 12px; color: #4CD964; font-variant-numeric: tabular-nums; }
+
+        /* Ortadaki Sesli Arama Arayüzü (Sadece seslide görünür) */
+        .audio-call-ui {
+            z-index: 2100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 50px;
+        }
+        .big-avatar { width: 120px; height: 120px; border-radius: 50%; border: 4px solid var(--accent-color); margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); animation: pulse-border 2s infinite; }
+        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(0,122,255, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(0,122,255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0,122,255, 0); } }
+
+        /* Alt Kontrol Paneli (Daha şık) */
+        .call-controls-panel {
+            position: absolute;
+            bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 2200;
+            padding: 15px 25px;
+            background: rgba(20, 20, 20, 0.6);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .control-btn {
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all 0.2s;
+            background-color: rgba(255,255,255,0.15);
+        }
+        .control-btn:active { transform: scale(0.95); }
+        
+        .btn-hangup { background-color: var(--danger-color) !important; width: 60px; height: 60px; }
+        .btn-answer { background-color: var(--success-color) !important; width: 60px; height: 60px; animation: bounce 1s infinite; }
+        .control-btn.off { background-color: white; color: black; } /* Kapalıyken beyaz olsun */
+        .control-btn.disabled { opacity: 0.5; pointer-events: none; }
+
+        @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+        /* Sağ Tık Menüsü */
+        .ctx-menu { position: fixed; background: var(--bg-sidebar); border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 300; display: none; min-width: 150px; border: 1px solid var(--border-color); }
+        .ctx-item { padding: 10px 15px; cursor: pointer; color: var(--text-main); }
+        .ctx-item:hover { background: var(--input-bg); }
+
+        /* Yanıt Çubuğu */
+        .reply-bar { padding: 5px 15px; background: var(--bg-sidebar); border-left: 4px solid var(--accent-color); display: none; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-secondary); }
+        .reply-bar.show { display: flex; }
+
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; position: absolute; height: 100%; z-index: 10; }
+            .sidebar.hidden { display: none; }
+            .chat-area { width: 100%; }
+            #local-video { width: 90px; height: 120px; top: 90px; right: 10px; }
+            .call-controls-panel { width: 90%; justify-content: space-around; padding: 10px; bottom: 30px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="toast" class="toast"></div>
+
+    <div id="ctx-menu" class="ctx-menu"></div>
+
+    <audio id="remote-audio" autoplay></audio> 
+    <audio id="snd-ring" src="ringtone-126505.mp3" loop></audio> 
+    <audio id="snd-out" src="phone-ringing-382734.mp3" loop></audio> 
+    <audio id="snd-end" src="end-call-120633.mp3"></audio> 
+    <audio id="snd-busy" src="unavailable-phone-192489.mp3"></audio> 
+
+    <div id="settings-modal" class="modal" onclick="if(event.target===this) closeModal('settings-modal')">
+        <div class="modal-content" style="background: var(--modal-bg);">
+            
+            <div id="settings-main-view">
+                <div class="settings-header">
+                    <span data-lang-key="settings">Настройки</span>
+                    <button class="tool-btn" onclick="closeModal('settings-modal')">✕</button>
+                </div>
+                <div class="settings-body">
+                    
+                    <div class="settings-group">
+                        <div class="settings-item" onclick="document.getElementById('avatar-input').click()">
+                            <div class="settings-icon">📷</div>
+                            <div class="settings-label" data-lang-key="change_photo">Сменить фото профиля</div>
+                            <div class="settings-value" style="color:var(--accent-color)" data-lang-key="edit">Изменить</div>
+                        </div>
+                        <input type="file" id="avatar-input" hidden accept="image/*" onchange="uploadAvatar(this)">
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-item">
+                            <div class="settings-icon">🌙</div>
+                            <div class="settings-label" data-lang-key="dark_theme">Тёмная тема</div>
+                            <label class="ios-switch">
+                                <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-icon">🔔</div>
+                            <div class="settings-label" data-lang-key="notifications">Уведомления</div>
+                            <label class="ios-switch">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-item" onclick="showPrivacy()">
+                            <div class="settings-icon">🔒</div>
+                            <div class="settings-label" data-lang-key="privacy">Приватность</div>
+                            <div class="settings-arrow">➤</div>
+                        </div>
+                        <div class="settings-item" onclick="cycleLanguage()">
+                            <div class="settings-icon">🌐</div>
+                            <div class="settings-label" data-lang-key="change_language">Язык</div>
+                            <div class="settings-value" id="current-lang-code">RU</div>
+                            <div class="settings-arrow">➤</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-btn" onclick="logout()" data-lang-key="logout">
+                        Выйти из аккаунта
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-privacy-view" style="display: none;">
+                <div class="settings-header">
+                    <button class="tool-btn" onclick="hidePrivacy()" style="font-size: 16px; color: var(--accent-color);">
+                         <span data-lang-key="back">Назад</span>
+                    </button>
+                    <span data-lang-key="privacy_header">Конфиденциальность</span>
+                    <div style="width:30px"></div>
+                </div>
+                <div class="settings-body">
+                    <p style="color:var(--text-secondary); font-size:13px; margin:0 0 10px 15px; text-transform:uppercase" data-lang-key="who_can_see">Кто видит мою информацию</p>
+                    
+                    <div class="settings-group">
+                        <div class="settings-item" onclick="showComingSoon()">
+                            <div class="settings-label" data-lang-key="last_seen">Время захода</div>
+                            <div class="settings-value" data-lang-key="everyone">Все</div>
+                            <div class="settings-arrow">➤</div>
+                        </div>
+                        <div class="settings-item" onclick="showComingSoon()">
+                            <div class="settings-label" data-lang-key="profile_photo">Фото профиля</div>
+                            <div class="settings-value" data-lang-key="my_contacts">Мои контакты</div>
+                            <div class="settings-arrow">➤</div>
+                        </div>
+                        <div class="settings-item" onclick="showComingSoon()">
+                            <div class="settings-label" data-lang-key="forwarded_msgs">Пересылка сообщений</div>
+                            <div class="settings-value" data-lang-key="everyone">Все</div>
+                            <div class="settings-arrow">➤</div>
+                        </div>
+                        <div class="settings-item" onclick="showComingSoon()">
+                            <div class="settings-label" data-lang-key="calls">Звонки</div>
+                            <div class="settings-value" data-lang-key="everyone">Все</div>
+                            <div class="settings-arrow">➤</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                         <div class="settings-item" onclick="showBlockedUsers()">
+                            <div class="settings-label" data-lang-key="blocked_users">Заблокированные</div>
+                            <div class="settings-value" id="blocked-count-label">0</div>
+                            <div class="settings-arrow">➤</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="settings-blocked-view" style="display: none;">
+                <div class="settings-header">
+                    <button class="tool-btn" onclick="hideBlockedUsers()" style="font-size: 16px; color: var(--accent-color);">
+                         <span data-lang-key="back">Назад</span>
+                    </button>
+                    <span data-lang-key="blocked_users">Заблокированные</span>
+                    <div style="width:30px"></div>
+                </div>
+                <div class="settings-body">
+                    <p style="color:var(--text-secondary); font-size:13px; margin:0 0 10px 15px;" data-lang-key="block_desc">Engellenen kişiler size mesaj atamaz ve arayamaz.</p>
+                    <div class="settings-group" id="block-user-list">
+                        </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="group-modal" class="modal">
+        <div class="modal-content" style="padding: 20px; background: var(--bg-sidebar);">
+            <h3 data-lang-key="create_group">Создать группу</h3> 
+            <input id="group-name" class="auth-input" data-lang-key="group_name_placeholder" placeholder="Название группы"> 
+            <p style="font-size:12px; color:gray" data-lang-key="default_photo">Стандартное фото: group.jpg</p> 
+            <div id="group-users" class="user-select-list"></div>
+            <button class="auth-btn" onclick="createGroup()" data-lang-key="create">Создать</button> 
+            <button class="auth-btn" style="background:#8E8E93" onclick="document.getElementById('group-modal').style.display='none'" data-lang-key="cancel">Отмена</button> 
+        </div>
+    </div>
+
+    <div id="call-modal" class="call-overlay">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay playsinline muted></video>
+
+        <div class="call-info-bar">
+            <img id="small-call-avatar" src="svyaz.jpg" class="info-avatar">
+            <div class="info-text">
+                <span id="call-name-small" class="info-name">İsim</span>
+                <span id="call-timer-small" class="info-timer">Bağlanıyor...</span>
+            </div>
+        </div>
+
+        <div id="audio-ui-center" class="audio-call-ui">
+            <img id="big-call-avatar" src="svyaz.jpg" class="big-avatar">
+            <h2 id="call-name-center" style="font-size: 24px; color:white;">İsim</h2>
+            <p id="call-status-text" style="color: #cccccc; margin-top: 5px;" data-lang-key="incoming_call">Aranıyor...</p> 
+        </div>
+
+        <div class="call-controls-panel">
+            <button id="btn-mic" class="control-btn" onclick="toggleMic()">
+                🎤
+            </button>
+            
+            <button id="btn-cam" class="control-btn" onclick="toggleCam()">
+                📹
+            </button>
+
+            <button id="btn-answer" class="control-btn btn-answer" style="display:none" onclick="answerCall()">
+                📞
+            </button>
+            
+            <button class="control-btn btn-hangup" onclick="endCall(true)">
+                ✖
+            </button>
+        </div>
+    </div>
+
+    <div id="auth-container">
+        <div class="auth-card">
+            <div style="position: absolute; top: 15px; right: 15px; cursor: pointer; font-weight: bold; color: var(--accent-color); font-size: 14px;" onclick="cycleLanguage()">
+                🌐 <span id="login-lang-label">RU</span>
+            </div>
+
+            <img src="svyaz.jpg" style="width:80px; height:80px; border-radius:20px; object-fit:cover" onerror="this.src='https://via.placeholder.com/80?text=S'">
+            <h2>Связь</h2>
+            <div id="login-form">
+                <input id="email" class="auth-input" data-lang-key="email_placeholder" placeholder="Электронная почта">
+                <input type="password" id="pass" class="auth-input" data-lang-key="password_placeholder" placeholder="Пароль"> 
+                <button class="auth-btn" onclick="login()" data-lang-key="login">Войти</button> 
+                <div style="margin-top:10px; font-size:13px; color:gray; cursor:pointer" onclick="toggleAuth(true)" data-lang-key="no_account">Нет аккаунта? Зарегистрироваться</div> 
+            </div>
+            <div id="reg-form" style="display:none">
+                <input id="r-name" class="auth-input" data-lang-key="name_placeholder" placeholder="Имя"> 
+                <input id="r-email" class="auth-input" data-lang-key="email_placeholder" placeholder="Электронная почта">
+                <input type="password" id="r-pass" class="auth-input" data-lang-key="password_placeholder" placeholder="Пароль">
+                <button class="auth-btn" onclick="register()" data-lang-key="register">Зарегистрироваться</button> 
+                <div style="margin-top:10px; font-size:13px; color:gray; cursor:pointer" onclick="toggleAuth(false)" data-lang-key="have_account">Есть аккаунт? Войти</div> 
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <div id="sidebar" class="sidebar">
+            <div class="header-me">
+                <div style="display:flex; align-items:center; gap:10px; cursor:pointer" onclick="document.getElementById('settings-modal').style.display='flex'">
+                    <img id="my-avatar" class="me-avatar" src="svyaz.jpg" onerror="this.src='https://via.placeholder.com/40'">
+                    <div id="my-name" style="font-weight:bold"></div>
+                </div>
+                <button class="tool-btn" onclick="openGroupModal()" data-lang-key="new_group">👥+</button>
+            </div>
+            <div class="search-bar">
+                <input id="search-inp" class="auth-input" style="margin:0" data-lang-key="search_placeholder" placeholder="Поиск по email..."> 
+                <button class="tool-btn" onclick="addContact()">+</button>
+            </div>
+            <div id="contact-list" class="contact-list"></div>
+        </div>
+
+        <div class="chat-area">
+            
+            <div id="empty-view">
+                <img src="svyaz.jpg" alt="Logo">
+                <h3>Связь Web</h3>
+                <p data-lang-key="select_chat">Выберите чат для общения</p> 
+            </div>
+
+            <div id="chat-view">
+                <div class="chat-header">
+                    <div class="chat-info">
+                        <button class="tool-btn" style="font-size:24px; margin-right:5px;" onclick="closeChat()">←</button>
+                        <img id="chat-img" class="c-avatar" onerror="this.src='https://via.placeholder.com/45'">
+                        <div>
+                            <div id="chat-name" style="font-weight:bold"></div>
+                            <div id="chat-status" style="font-size:12px; color:gray"></div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button id="header-call-btn" class="tool-btn" onclick="initiateCall('audio')">📞</button>
+                        <button id="header-video-btn" class="tool-btn" onclick="initiateCall('video')">📹</button>
+                    </div>
+                </div>
+
+                <div id="messages-container"></div>
+                
+                <div id="reply-bar" class="reply-bar">
+                    <div>
+                        <span style="color:var(--accent-color)" data-lang-key="reply">Ответ:</span> <span id="reply-text">...</span>
+                    </div>
+                    <button class="tool-btn" onclick="cancelReply()">✕</button>
+                </div>
+                
+                <div id="blocked-banner" class="blocked-banner">
+                    🚫 <span data-lang-key="you_are_blocked">Bu kişi sizi engelledi.</span>
+                </div>
+
+                <div class="input-area" id="main-input-area">
+                    <button class="tool-btn" onclick="toggleEmoji()">😀</button>
+                    <div id="emoji-picker" class="emoji-picker"></div>
+                    
+                    <button class="tool-btn" onclick="document.getElementById('file-inp').click()">📎</button>
+                    <input type="file" id="file-inp" hidden accept="image/*" onchange="sendFile(this, 'image')">
+                    
+                    <button class="tool-btn" onclick="document.getElementById('video-inp').click()">📹</button>
+                    <input type="file" id="video-inp" hidden accept="video/*" onchange="sendFile(this, 'video')">
+
+                    <textarea id="msg-text" class="text-input" data-lang-key="message_placeholder" placeholder="Сообщение..." rows="1"></textarea> 
+                    <button id="mic-btn" class="tool-btn" onmousedown="startRec()" onmouseup="stopRec()" ontouchstart="startRec()" ontouchend="stopRec()">🎤</button>
+                    <button class="send-btn" onclick="sendText()">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, serverTimestamp, orderBy, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDlbZNVIwsil9giSY0v1ZXC2cVQlWe1UoE",
+            authDomain: "svyaz-69347.firebaseapp.com",
+            databaseURL: "https://svyaz-69347-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "svyaz-69347",
+            storageBucket: "svyaz-69347.firebasestorage.app",
+            messagingSenderId: "1074322271406",
+            appId: "1:1074322271406:web:9b032f610557a9e131d13f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser, activeChatUser, activeChatId, statusListener, replyTo, groupSelection = new Set(), mediaRecorder, audioChunks;
+        let peerConnection, localStream, remoteStream, currentCallDocId, callListener;
+        let currentLang = localStorage.getItem('lang') || 'ru';
+        let currentCallType = 'audio'; 
+        
+        // Yeni Değişkenler
+        let callTimerInterval = null;
+        let callSeconds = 0;
+
+        // GENİŞLETİLMİŞ DİL OBJESİ
+        const lang = {
+            ru: {
+                settings: 'Настройки',
+                change_photo: 'Сменить фото',
+                edit: 'Изменить',
+                dark_theme: 'Тёмная тема',
+                notifications: 'Уведомления',
+                privacy: 'Приватность',
+                change_language: 'Язык',
+                logout: 'Выйти из аккаунта',
+                privacy_header: 'Конфиденциальность',
+                back: 'Назад',
+                who_can_see: 'КТО ВИДИТ МОЮ ИНФОРМАЦИЮ',
+                last_seen: 'Время захода',
+                profile_photo: 'Фото профиля',
+                forwarded_msgs: 'Пересылка',
+                calls: 'Звонки',
+                blocked_users: 'Заблокированные',
+                block_desc: 'Заблокированные пользователи не могут отправлять вам сообщения и звонить.',
+                block: 'Заблокировать',
+                unblock: 'Разблокировать',
+                you_are_blocked: 'Этот пользователь заблокировал вас.',
+                everyone: 'Все',
+                my_contacts: 'Мои контакты',
+                nobody: 'Никто',
+                create_group: 'Создать группу',
+                group_name_placeholder: 'Название группы',
+                default_photo: 'Стандартное фото: group.jpg',
+                create: 'Создать',
+                cancel: 'Отмена',
+                incoming_call: 'Входящий звонок...',
+                incoming_video_call: 'Входящий видеозвонок...',
+                calling: 'Звонок...',
+                email_placeholder: 'Электронная почта',
+                password_placeholder: 'Пароль',
+                login: 'Войти',
+                no_account: 'Нет аккаунта? Зарегистрироваться',
+                name_placeholder: 'Имя',
+                register: 'Зарегистрироваться',
+                have_account: 'Есть аккаунт? Войти',
+                search_placeholder: 'Поиск по email...',
+                select_chat: 'Выберите чат для общения',
+                reply: 'Ответ:',
+                message_placeholder: 'Сообщение...',
+                new_group: '👥+',
+                user_not_found: 'Пользователь не найден',
+                cant_add_self: 'Нельзя добавить себя',
+                contact_added: 'Контакт добавлен',
+                group_required: 'Имя и хотя бы 1 участник обязательны',
+                group_created: 'Группа создана',
+                online: 'Онлайн',
+                last_seen_status: 'Был(а): ',
+                members: ' участников',
+                delete_confirm: 'Удалить?',
+                uploading: 'Загрузка...',
+                video_max: 'Видео max 10MB!',
+                photo_max: 'Фото max 2.5MB!',
+                mic_error: 'Ошибка микрофона',
+                no_text: 'Введите текст',
+                login_error: 'Введите email и пароль',
+                all_fields: 'Все поля обязательны',
+                photo_updated: 'Фото обновлено',
+                file_too_big: 'Файл слишком большой (Max 2MB)!',
+                call_only_personal: 'Только личные звонки',
+                call_ended: 'Звонок завершен.',
+                connection_lost: 'Соединение прервано',
+                loading: 'Загрузка...',
+                group_type: 'Группа',
+                chat_type: 'Чат',
+                reply_verb: 'Ответить',
+                like: 'Нравится',
+                delete: 'Удалить',
+                register_success: 'Регистрация успешна!',
+                login_success: 'Вход...',
+                error: 'Ошибка: ',
+                account_setup_error: 'Настройка аккаунта не завершена, войдите заново.',
+                coming_soon: 'Скоро будет...'
+            },
+            tr: {
+                settings: 'Ayarlar',
+                change_photo: 'Profil Fotoğrafı',
+                edit: 'Değiştir',
+                dark_theme: 'Koyu Tema',
+                notifications: 'Bildirimler',
+                privacy: 'Gizlilik',
+                change_language: 'Dil',
+                logout: 'Hesaptan Çık',
+                privacy_header: 'Gizlilik',
+                back: 'Geri',
+                who_can_see: 'BİLGİLERİMİ KİM GÖREBİLİR',
+                last_seen: 'Son Görülme',
+                profile_photo: 'Profil Fotosu',
+                forwarded_msgs: 'İletilenler',
+                calls: 'Aramalar',
+                blocked_users: 'Engellenenler',
+                block_desc: 'Engellenen kullanıcılar size mesaj atamaz ve arayamaz.',
+                block: 'Engelle',
+                unblock: 'Engeli Kaldır',
+                you_are_blocked: 'Bu kullanıcı sizi engelledi.',
+                everyone: 'Herkes',
+                my_contacts: 'Kişilerim',
+                nobody: 'Hiç Kimse',
+                create_group: 'Grup Oluştur',
+                group_name_placeholder: 'Grup Adı',
+                default_photo: 'Varsayılan foto: group.jpg',
+                create: 'Oluştur',
+                cancel: 'İptal',
+                incoming_call: 'Gelen arama...',
+                incoming_video_call: 'Görüntülü arama...',
+                calling: 'Aranıyor...',
+                email_placeholder: 'E-posta',
+                password_placeholder: 'Şifre',
+                login: 'Giriş',
+                no_account: 'Hesabın yok mu? Kayıt Ol',
+                name_placeholder: 'İsim',
+                register: 'Kayıt Ol',
+                have_account: 'Hesabın var mı? Giriş Yap',
+                search_placeholder: 'Email ile ara...',
+                select_chat: 'Sohbet etmek için bir sohbet seçin',
+                reply: 'Yanıt:',
+                message_placeholder: 'Mesaj...',
+                new_group: '👥+',
+                user_not_found: 'Kullanıcı bulunamadı',
+                cant_add_self: 'Kendini ekleyemezsin',
+                contact_added: 'Kişi eklendi',
+                group_required: 'İsim ve en az 1 üye gerekli',
+                group_created: 'Grup oluşturuldu',
+                online: 'Çevrimiçi',
+                last_seen_status: 'Son görülme: ',
+                members: ' üye',
+                delete_confirm: 'Silinsin mi?',
+                uploading: 'Yükleniyor...',
+                video_max: 'Video max 10MB!',
+                photo_max: 'Foto max 2.5MB!',
+                mic_error: 'Mikrofon hatası',
+                no_text: 'Metin girin',
+                login_error: 'Email ve şifre girin',
+                all_fields: 'Tüm alanlar zorunlu',
+                photo_updated: 'Foto güncellendi',
+                file_too_big: 'Dosya çok büyük (Max 2MB)!',
+                call_only_personal: 'Sadece bireysel aramalar',
+                call_ended: 'Arama sona erdi.',
+                connection_lost: 'Bağlantı kesildi',
+                loading: 'Yükleniyor...',
+                group_type: 'Grup',
+                chat_type: 'Sohbet',
+                reply_verb: 'Cevapla',
+                like: 'Beğen',
+                delete: 'Sil',
+                register_success: 'Kayıt başarılı!',
+                login_success: 'Giriş...',
+                error: 'Hata: ',
+                account_setup_error: 'Hesap ayarları tamamlanmadı, tekrar giriş yap.',
+                coming_soon: 'Yakında gelecek...'
+            },
+            en: {
+                settings: 'Settings',
+                change_photo: 'Profile Photo',
+                edit: 'Edit',
+                dark_theme: 'Dark Theme',
+                notifications: 'Notifications',
+                privacy: 'Privacy',
+                change_language: 'Language',
+                logout: 'Log Out',
+                privacy_header: 'Privacy',
+                back: 'Back',
+                who_can_see: 'WHO CAN SEE MY INFO',
+                last_seen: 'Last Seen',
+                profile_photo: 'Profile Photo',
+                forwarded_msgs: 'Forwarded Msgs',
+                calls: 'Calls',
+                blocked_users: 'Blocked Users',
+                block_desc: 'Blocked users cannot send you messages or call you.',
+                block: 'Block',
+                unblock: 'Unblock',
+                you_are_blocked: 'This user has blocked you.',
+                everyone: 'Everyone',
+                my_contacts: 'My Contacts',
+                nobody: 'Nobody',
+                create_group: 'Create Group',
+                group_name_placeholder: 'Group Name',
+                default_photo: 'Default photo: group.jpg',
+                create: 'Create',
+                cancel: 'Cancel',
+                incoming_call: 'Incoming call...',
+                incoming_video_call: 'Incoming video call...',
+                calling: 'Calling...',
+                email_placeholder: 'Email',
+                password_placeholder: 'Password',
+                login: 'Login',
+                no_account: 'No account? Register',
+                name_placeholder: 'Name',
+                register: 'Register',
+                have_account: 'Have account? Login',
+                search_placeholder: 'Search by email...',
+                select_chat: 'Select a chat to start messaging',
+                reply: 'Reply:',
+                message_placeholder: 'Message...',
+                new_group: '👥+',
+                user_not_found: 'User not found',
+                cant_add_self: 'Cannot add yourself',
+                contact_added: 'Contact added',
+                group_required: 'Name and at least 1 member required',
+                group_created: 'Group created',
+                online: 'Online',
+                last_seen_status: 'Last seen: ',
+                members: ' members',
+                delete_confirm: 'Delete?',
+                uploading: 'Uploading...',
+                video_max: 'Video max 10MB!',
+                photo_max: 'Photo max 2.5MB!',
+                mic_error: 'Microphone error',
+                no_text: 'Enter text',
+                login_error: 'Enter email and password',
+                all_fields: 'All fields required',
+                photo_updated: 'Photo updated',
+                file_too_big: 'File too big (Max 2MB)!',
+                call_only_personal: 'Personal calls only',
+                call_ended: 'Call ended.',
+                connection_lost: 'Connection lost',
+                loading: 'Loading...',
+                group_type: 'Group',
+                chat_type: 'Chat',
+                reply_verb: 'Reply',
+                like: 'Like',
+                delete: 'Delete',
+                register_success: 'Registration successful!',
+                login_success: 'Logging in...',
+                error: 'Error: ',
+                account_setup_error: 'Account setup incomplete, login again.',
+                coming_soon: 'Coming soon...'
+            }
+        };
+
+        function updateLanguage() {
+            document.querySelectorAll('[data-lang-key]').forEach(el => {
+                const key = el.getAttribute('data-lang-key');
+                if (lang[currentLang][key]) {
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                        el.placeholder = lang[currentLang][key];
+                    } else {
+                        el.innerText = lang[currentLang][key];
+                    }
+                }
+            });
+            localStorage.setItem('lang', currentLang);
+            
+            // Ayarlar menüsündeki dil yazısı
+            const langLabel = document.getElementById('current-lang-code');
+            if(langLabel) langLabel.innerText = currentLang.toUpperCase();
+
+            // GİRİŞ EKRANINDAKİ DİL YAZISI (YENİ)
+            const loginLabel = document.getElementById('login-lang-label');
+            if(loginLabel) loginLabel.innerText = currentLang.toUpperCase();
+            
+            if (activeChatUser) openChat(activeChatUser);
+        }
+
+        function toast(keyOrMsg) {
+            const t = document.getElementById('toast');
+            t.innerText = lang[currentLang][keyOrMsg] || keyOrMsg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+        
+        window.showComingSoon = () => {
+             toast('coming_soon');
+        }
+
+        function formatTime(ts) {
+            if(!ts) return "";
+            const d = ts.toDate ? ts.toDate() : new Date(ts);
+            let locale = 'ru-RU';
+            if(currentLang === 'tr') locale = 'tr-TR';
+            if(currentLang === 'en') locale = 'en-US';
+            return d.toLocaleString(locale, {dateStyle:'short', timeStyle:'short'});
+        }
+
+        function playSound(id) {
+            stopAllSounds();
+            const el = document.getElementById(id);
+            if(el) {
+                el.currentTime = 0;
+                el.play().catch(e => console.log("Ses hatası:", e));
+            }
+        }
+        function stopAllSounds() {
+            ['snd-ring', 'snd-out', 'snd-end', 'snd-busy'].forEach(id => {
+                const a = document.getElementById(id);
+                if(a) {
+                    a.pause();
+                    a.currentTime = 0;
+                }
+            });
+        }
+
+        // --- SAYAC VE MEDYA KONTROLLERİ ---
+        function startCallTimer() {
+            stopCallTimer();
+            callSeconds = 0;
+            const timerEl = document.getElementById('call-timer-small');
+            timerEl.innerText = "00:00";
+            timerEl.style.color = "#4CD964"; 
+            
+            callTimerInterval = setInterval(() => {
+                callSeconds++;
+                const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+                const s = (callSeconds % 60).toString().padStart(2, '0');
+                timerEl.innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function stopCallTimer() {
+            if(callTimerInterval) clearInterval(callTimerInterval);
+            callTimerInterval = null;
+        }
+
+        window.toggleMic = () => {
+            if(localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if(audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    const btn = document.getElementById('btn-mic');
+                    if(audioTrack.enabled) {
+                        btn.classList.remove('off');
+                    } else {
+                        btn.classList.add('off');
+                    }
+                }
+            }
+        };
+
+        window.toggleCam = () => {
+            if(localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if(videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    const btn = document.getElementById('btn-cam');
+                    if(videoTrack.enabled) {
+                        btn.classList.remove('off');
+                    } else {
+                        btn.classList.add('off');
+                    }
+                }
+            }
+        };
+
+
+        // --- ARAMA (WEB RTC + VİDEO) ---
+        const servers = {
+            iceServers: [
+                { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+            ],
+            iceCandidatePoolSize: 10,
+        };
+
+        async function listenForIncomingCalls() {
+            if(callListener) callListener();
+            
+            callListener = onSnapshot(doc(db, "users", currentUser.uid), async (snap) => {
+                const data = snap.data();
+                
+                if(data && data.incomingCall) {
+                    currentCallDocId = data.incomingCall;
+                    const callRef = doc(db, "calls", currentCallDocId);
+                    
+                    try {
+                        const callSnap = await getDoc(callRef);
+                        
+                        if (!callSnap.exists()) {
+                            await updateDoc(doc(db, "users", currentUser.uid), { incomingCall: null });
+                            document.getElementById('call-modal').style.display = 'none';
+                            stopAllSounds();
+                            return;
+                        }
+
+                        const callData = callSnap.data();
+                        
+                        if (callData.offer && callData.offer.callType) {
+                            currentCallType = callData.offer.callType;
+                        } else {
+                            currentCallType = 'audio';
+                        }
+
+                        document.getElementById('call-modal').style.display = 'flex';
+                        const cName = (callData.offer && callData.offer.callerName) || "Bilinmeyen";
+                        const cPhoto = (callData.offer && callData.offer.callerPhoto) || 'svyaz.jpg';
+
+                        // UI Güncelleme (Gelen Arama)
+                        document.getElementById('call-name-small').innerText = cName;
+                        document.getElementById('small-call-avatar').src = cPhoto;
+                        document.getElementById('call-timer-small').innerText = lang[currentLang].incoming_call;
+                        document.getElementById('call-timer-small').style.color = "white";
+
+                        // Orta UI (İsim ve Resim)
+                        document.getElementById('call-name-center').innerText = cName;
+                        document.getElementById('big-call-avatar').src = cPhoto;
+                        const statusKey = currentCallType === 'video' ? 'incoming_video_call' : 'incoming_call';
+                        document.getElementById('call-status-text').innerText = lang[currentLang][statusKey];
+
+                        // Butonlar
+                        document.getElementById('btn-answer').style.display = 'flex';
+                        document.getElementById('btn-mic').style.display = 'none';
+                        document.getElementById('btn-cam').style.display = 'none';
+                        
+                        // Video ise ortayı gizle
+                        if (currentCallType === 'video') {
+                            document.getElementById('remote-video').style.display = 'none'; // Açılınca görünür
+                            document.getElementById('local-video').style.display = 'none';
+                            document.getElementById('audio-ui-center').style.display = 'flex'; // Kabul edene kadar görünsün
+                        } else {
+                            document.getElementById('remote-video').style.display = 'none';
+                            document.getElementById('local-video').style.display = 'none';
+                            document.getElementById('audio-ui-center').style.display = 'flex';
+                        }
+                        
+                        playSound('snd-ring');
+
+                    } catch (error) {
+                        await updateDoc(doc(db, "users", currentUser.uid), { incomingCall: null });
+                        document.getElementById('call-modal').style.display = 'none';
+                    }
+                } else {
+                    if(document.getElementById('call-modal').style.display === 'flex' && 
+                       (!callTimerInterval)) { // Eğer sayaç çalışmıyorsa (konuşma başlamadıysa) kapat
+                         document.getElementById('call-modal').style.display = 'none';
+                         stopAllSounds();
+                    }
+                }
+            });
+        }
+
+        window.initiateCall = async (type = 'audio') => {
+            if(!activeChatUser || activeChatUser.isGroup) return toast('call_only_personal');
+            currentCallType = type;
+
+            if(activeChatUser.blockedUsers && activeChatUser.blockedUsers.includes(currentUser.uid)) {
+                return toast('you_are_blocked');
+            }
+            if(currentUser.blockedUsers && currentUser.blockedUsers.includes(activeChatUser.uid)) {
+                return toast('Unblock user first'); 
+            }
+            
+            document.getElementById('call-modal').style.display = 'flex';
+            
+            // UI Set
+            document.getElementById('call-name-small').innerText = activeChatUser.name;
+            document.getElementById('small-call-avatar').src = activeChatUser.photo || 'svyaz.jpg';
+            document.getElementById('call-timer-small').innerText = lang[currentLang].calling;
+            
+            document.getElementById('call-name-center').innerText = activeChatUser.name;
+            document.getElementById('big-call-avatar').src = activeChatUser.photo || 'svyaz.jpg';
+            document.getElementById('call-status-text').innerText = lang[currentLang].calling;
+
+            document.getElementById('btn-answer').style.display = 'none';
+            document.getElementById('btn-mic').style.display = 'flex'; 
+            document.getElementById('btn-cam').style.display = 'flex';
+            
+            // Sıfırla
+            document.getElementById('btn-mic').classList.remove('off');
+            document.getElementById('btn-cam').classList.remove('off');
+
+            // Video Arama Mantığı
+            if (currentCallType === 'video') {
+                document.getElementById('remote-video').style.display = 'block';
+                document.getElementById('local-video').style.display = 'block';
+                document.getElementById('audio-ui-center').style.display = 'none'; // Videoda ortayı gizle
+            } else {
+                document.getElementById('remote-video').style.display = 'none';
+                document.getElementById('local-video').style.display = 'none';
+                document.getElementById('audio-ui-center').style.display = 'flex'; // Seslide ortayı göster
+            }
+            
+            playSound('snd-out');
+
+            currentCallDocId = activeChatId;
+            const callDoc = doc(db, "calls", currentCallDocId);
+            const offerCandidates = collection(callDoc, 'offerCandidates');
+            const answerCandidates = collection(callDoc, 'answerCandidates');
+
+            try { await deleteDoc(callDoc); } catch(e) {}
+
+            peerConnection = new RTCPeerConnection(servers);
+            
+            peerConnection.oniceconnectionstatechange = () => {
+                if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
+                    toast('connection_lost');
+                    endCall(true);
+                }
+            };
+
+            // Stream Alma
+            try {
+                const constraints = { audio: true, video: currentCallType === 'video' };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                // Kendi videomuzu göster
+                if (currentCallType === 'video') {
+                     document.getElementById('local-video').srcObject = localStream;
+                }
+
+            } catch(e) {
+                console.error('Medya hatası:', e);
+                playSound('snd-busy');
+                toast('mic_error');
+                endCall(false);
+                return;
+            }
+
+            peerConnection.ontrack = (event) => {
+                remoteStream = event.streams[0];
+                
+                if (currentCallType === 'video') {
+                    const remoteVideo = document.getElementById('remote-video');
+                    remoteVideo.srcObject = remoteStream;
+                } else {
+                    const remoteAudio = document.getElementById('remote-audio');
+                    remoteAudio.srcObject = remoteStream;
+                    remoteAudio.play().catch(e => console.error('Ses hatası:', e));
+                }
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) addDoc(offerCandidates, event.candidate.toJSON());
+            };
+
+            const offerDescription = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offerDescription);
+
+            const offer = {
+                sdp: offerDescription.sdp,
+                type: offerDescription.type,
+                callerName: currentUser.name,
+                callerPhoto: currentUser.photo,
+                callerId: currentUser.uid,
+                callType: currentCallType 
+            };
+
+            await setDoc(callDoc, { offer });
+
+            await updateDoc(doc(db, "users", activeChatUser.uid), { incomingCall: currentCallDocId });
+
+            onSnapshot(callDoc, (snapshot) => {
+                const data = snapshot.data();
+                if (!peerConnection.currentRemoteDescription && data?.answer) {
+                    const answerDescription = new RTCSessionDescription(data.answer);
+                    peerConnection.setRemoteDescription(answerDescription);
+                    
+                    // BAĞLANTI KURULDU - SAYACI BAŞLAT
+                    startCallTimer();
+                    stopAllSounds();
+                }
+            });
+
+            onSnapshot(answerCandidates, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        peerConnection.addIceCandidate(candidate);
+                    }
+                });
+            });
+        };
+
+        window.answerCall = async () => {
+            const callDoc = doc(db, "calls", currentCallDocId);
+            const answerCandidates = collection(callDoc, 'answerCandidates');
+            const offerCandidates = collection(callDoc, 'offerCandidates');
+
+            peerConnection = new RTCPeerConnection(servers);
+
+            try {
+                const constraints = { audio: true, video: currentCallType === 'video' };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                // UI Ayarla
+                document.getElementById('btn-answer').style.display = 'none';
+                document.getElementById('btn-mic').style.display = 'flex';
+                document.getElementById('btn-cam').style.display = 'flex';
+                
+                document.getElementById('btn-mic').classList.remove('off');
+                document.getElementById('btn-cam').classList.remove('off');
+
+                if (currentCallType === 'video') {
+                     document.getElementById('local-video').style.display = 'block';
+                     document.getElementById('local-video').srcObject = localStream;
+                     document.getElementById('remote-video').style.display = 'block';
+                     document.getElementById('audio-ui-center').style.display = 'none';
+                } else {
+                     document.getElementById('audio-ui-center').style.display = 'flex';
+                     document.getElementById('call-status-text').innerText = "00:00";
+                }
+
+            } catch(e) {
+                toast('mic_error');
+                return endCall(true);
+            }
+
+            peerConnection.ontrack = (event) => {
+                remoteStream = event.streams[0];
+                if (currentCallType === 'video') {
+                    const remoteVideo = document.getElementById('remote-video');
+                    remoteVideo.srcObject = remoteStream;
+                } else {
+                    const remoteAudio = document.getElementById('remote-audio');
+                    remoteAudio.srcObject = remoteStream;
+                    remoteAudio.play().catch(e => console.error('Ses hatası:', e));
+                }
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) addDoc(answerCandidates, event.candidate.toJSON());
+            };
+
+            const callSnap = await getDoc(callDoc);
+            if(!callSnap.exists()) {
+                toast('call_ended');
+                endCall(true);
+                return;
+            }
+            
+            const callData = callSnap.data();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+
+            const answerDescription = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answerDescription);
+
+            await updateDoc(callDoc, { answer: { type: answerDescription.type, sdp: answerDescription.sdp } });
+
+            onSnapshot(offerCandidates, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        peerConnection.addIceCandidate(candidate);
+                    }
+                });
+            });
+
+            // SAYAÇ BAŞLAT
+            startCallTimer();
+            stopAllSounds();
+
+            await updateDoc(doc(db, "users", currentUser.uid), { incomingCall: null });
+        };
+
+        window.endCall = async (isManual) => {
+            stopCallTimer();
+            stopAllSounds();
+            if(isManual) {
+                playSound('snd-end');
+                setTimeout(() => {
+                     const a = document.getElementById('snd-end');
+                     a.pause(); a.currentTime = 0;
+                }, 1000);
+            }
+
+            // Streamleri durdur ve temizle
+            if(remoteStream) remoteStream.getTracks().forEach(track => track.stop());
+            if(localStream) localStream.getTracks().forEach(track => track.stop());
+            
+            const rVideo = document.getElementById('remote-video');
+            const lVideo = document.getElementById('local-video');
+            rVideo.srcObject = null;
+            lVideo.srcObject = null;
+            rVideo.style.display = 'none';
+            lVideo.style.display = 'none';
+            
+            if(peerConnection) peerConnection.close();
+
+            document.getElementById('call-modal').style.display = 'none';
+            
+            if(currentCallDocId) {
+                try {
+                   await deleteDoc(doc(db, "calls", currentCallDocId));
+                } catch(e) {} 
+                
+                if(currentUser) {
+                    try {
+                        await updateDoc(doc(db, "users", currentUser.uid), { incomingCall: null });
+                    } catch(e) {}
+                }
+                currentCallDocId = null;
+            }
+        };
+
+        // --- YETKİLENDİRME (AUTH) ---
+        onAuthStateChanged(auth, async (u) => {
+            if(u) {
+                try {
+                    const snap = await getDoc(doc(db, "users", u.uid));
+                    if (!snap.exists()) {
+                        toast('account_setup_error');
+                        return signOut(auth);
+                    }
+                    currentUser = snap.data();
+                    
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'flex';
+                    document.getElementById('my-name').innerText = currentUser.name;
+                    document.getElementById('my-avatar').src = currentUser.photo || 'svyaz.jpg';
+                    
+                    updateOnlineStatus();
+                    setInterval(updateOnlineStatus, 60000); 
+
+                    loadContacts();
+                    listenForIncomingCalls();
+                    
+                    if(currentUser.incomingCall) {
+                        const callCheck = await getDoc(doc(db, "calls", currentUser.incomingCall));
+                        if(!callCheck.exists()) {
+                            await updateDoc(doc(db, "users", currentUser.uid), { incomingCall: null });
+                        }
+                    }
+                    
+                    const savedTheme = localStorage.getItem('theme');
+                    if(savedTheme === 'dark') {
+                        document.body.setAttribute('data-theme', 'dark');
+                        document.getElementById('theme-toggle').checked = true;
+                    }
+
+                    updateBlockedCount();
+                    updateLanguage();
+
+                } catch (error) {
+                    console.error("Auth Hatası:", error);
+                    toast("error" + error.message);
+                }
+            } else {
+                document.getElementById('auth-container').style.display = 'flex';
+                document.getElementById('app-container').style.display = 'none';
+                if(callListener) callListener();
+            }
+        });
+
+        async function updateOnlineStatus() {
+            if(currentUser) {
+                await updateDoc(doc(db, "users", currentUser.uid), { lastSeen: serverTimestamp() });
+            }
+        }
+
+        function updateBlockedCount() {
+            if(currentUser && currentUser.blockedUsers) {
+                document.getElementById('blocked-count-label').innerText = currentUser.blockedUsers.length;
+            }
+        }
+
+        window.toggleAuth = (reg) => {
+            document.getElementById('login-form').style.display = reg ? 'none' : 'block';
+            document.getElementById('reg-form').style.display = reg ? 'block' : 'none';
+        }
+
+        window.login = () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('pass').value;
+            if(!e || !p) return toast('login_error');
+            
+            signInWithEmailAndPassword(auth, e, p)
+            .then(() => toast('login_success'))
+            .catch(e => toast("error" + e.message)); 
+        };
+
+        window.register = async () => {
+            const name = document.getElementById('r-name').value;
+            const email = document.getElementById('r-email').value;
+            const pass = document.getElementById('r-pass').value;
+            if(!name || !email || !pass) return toast('all_fields'); 
+            
+            try {
+                const res = await createUserWithEmailAndPassword(auth, email, pass);
+                await setDoc(doc(db, "users", res.user.uid), {
+                    uid: res.user.uid, name, email, photo: "svyaz.jpg", lastSeen: serverTimestamp(), incomingCall: null, blockedUsers: []
+                });
+                toast('register_success');
+            } catch(e) { toast("error" + e.message); }
+        }
+        window.logout = () => signOut(auth);
+
+        // --- ARAYÜZ FONKSİYONLARI ---
+        window.toggleTheme = () => {
+            const b = document.body;
+            const isDark = b.getAttribute('data-theme') === 'dark';
+            b.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            localStorage.setItem('theme', isDark ? 'light' : 'dark');
+        }
+
+        window.cycleLanguage = () => {
+            if(currentLang === 'ru') currentLang = 'tr';
+            else if(currentLang === 'tr') currentLang = 'en';
+            else currentLang = 'ru';
+            updateLanguage();
+        }
+
+        window.closeModal = (id) => {
+            document.getElementById(id).style.display = 'none';
+            if(id === 'settings-modal') {
+                hidePrivacy();
+                hideBlockedUsers();
+            }
+        }
+
+        window.showPrivacy = () => {
+            document.getElementById('settings-main-view').style.display = 'none';
+            document.getElementById('settings-privacy-view').style.display = 'block';
+            updateBlockedCount();
+        }
+        window.hidePrivacy = () => {
+            document.getElementById('settings-privacy-view').style.display = 'none';
+            document.getElementById('settings-main-view').style.display = 'block';
+        }
+
+        window.showBlockedUsers = async () => {
+            document.getElementById('settings-privacy-view').style.display = 'none';
+            document.getElementById('settings-blocked-view').style.display = 'block';
+            
+            const list = document.getElementById('block-user-list');
+            list.innerHTML = lang[currentLang].loading;
+
+            const snap = await getDocs(collection(db, "users", currentUser.uid, "contacts"));
+            list.innerHTML = "";
+            const blocked = currentUser.blockedUsers || [];
+
+            snap.forEach(d => {
+                const u = d.data();
+                if(!u.isGroup) {
+                    const isBlocked = blocked.includes(u.uid);
+                    const div = document.createElement('div');
+                    div.className = 'settings-item';
+                    div.style.cursor = "default";
+                    
+                    const btnColor = isBlocked ? 'gray' : 'red';
+                    const btnText = isBlocked ? lang[currentLang].unblock : lang[currentLang].block;
+
+                    div.innerHTML = `
+                        <div style="flex:1">
+                            <div style="font-weight:bold">${u.name}</div>
+                            <div style="font-size:12px;color:gray">${u.email}</div>
+                        </div>
+                        <button onclick="toggleBlockStatus('${u.uid}', ${isBlocked})" 
+                            style="background:${btnColor}; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">
+                            ${btnText}
+                        </button>
+                    `;
+                    list.appendChild(div);
+                }
+            });
+        }
+
+        window.hideBlockedUsers = () => {
+            document.getElementById('settings-blocked-view').style.display = 'none';
+            document.getElementById('settings-privacy-view').style.display = 'block';
+            (async () => {
+                const me = await getDoc(doc(db, "users", currentUser.uid));
+                currentUser = me.data();
+                updateBlockedCount();
+            })();
+        }
+
+        window.toggleBlockStatus = async (targetId, isCurrentlyBlocked) => {
+            const myRef = doc(db, "users", currentUser.uid);
+            try {
+                if (isCurrentlyBlocked) {
+                    await updateDoc(myRef, { blockedUsers: arrayRemove(targetId) });
+                } else {
+                    await updateDoc(myRef, { blockedUsers: arrayUnion(targetId) });
+                }
+                const me = await getDoc(myRef);
+                currentUser = me.data();
+                showBlockedUsers();
+            } catch (error) {
+                console.error(error);
+                toast('error' + error.message);
+            }
+        }
+
+        window.uploadAvatar = async (inp) => {
+            const file = inp.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const b64 = reader.result;
+                if(file.size > 2000 * 1024) return toast('file_too_big'); 
+                await updateDoc(doc(db, "users", currentUser.uid), { photo: b64 });
+                document.getElementById('my-avatar').src = b64;
+                toast('photo_updated'); 
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- KİŞİLER ---
+        window.addContact = async () => {
+            const email = document.getElementById('search-inp').value;
+            if(!email) return;
+            const q = query(collection(db, "users"), where("email", "==", email));
+            const snap = await getDocs(q);
+            if(snap.empty) return toast('user_not_found'); 
+
+            const userToAdd = snap.docs[0].data();
+            if(userToAdd.uid === currentUser.uid) return toast('cant_add_self');
+
+            await setDoc(doc(db, "users", currentUser.uid, "contacts", userToAdd.uid), userToAdd);
+            toast('contact_added'); 
+            document.getElementById('search-inp').value = "";
+        }
+
+        async function loadContacts() {
+            onSnapshot(collection(db, "users", currentUser.uid, "contacts"), (snap) => {
+                const list = document.getElementById('contact-list');
+                list.innerHTML = "";
+                snap.forEach(d => {
+                    const u = d.data();
+                    const div = document.createElement('div');
+                    div.className = 'contact-item';
+                    div.innerHTML = `<img src="${u.photo || (u.isGroup ? 'group.jpg' : 'svyaz.jpg')}" class="c-avatar" onerror="this.src='https://via.placeholder.com/45'"> 
+                                     <div><div style="font-weight:600">${u.name}</div><div style="font-size:12px;color:gray">${u.isGroup ? lang[currentLang].group_type : lang[currentLang].chat_type}</div></div>`; 
+                    div.onclick = () => openChat(u);
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        // --- GRUPLAR ---
+        window.openGroupModal = async () => {
+            document.getElementById('group-modal').style.display = 'flex';
+            const list = document.getElementById('group-users');
+            list.innerHTML = lang[currentLang].loading; 
+            
+            const snap = await getDocs(collection(db, "users", currentUser.uid, "contacts"));
+            list.innerHTML = "";
+            groupSelection.clear();
+            
+            snap.forEach(d => {
+                const u = d.data();
+                if(!u.isGroup) {
+                    const el = document.createElement('div');
+                    el.className = 'user-select-item';
+                    el.innerHTML = `<span>${u.name}</span>`;
+                    el.onclick = () => {
+                        if(groupSelection.has(u.uid)) { groupSelection.delete(u.uid); el.classList.remove('selected'); }
+                        else { groupSelection.add(u.uid); el.classList.add('selected'); }
+                    };
+                    list.appendChild(el);
+                }
+            });
+        }
+
+        window.createGroup = async () => {
+            const name = document.getElementById('group-name').value;
+            if(!name || groupSelection.size === 0) return toast('group_required'); 
+            
+            const gid = "group_" + Date.now();
+            const parts = Array.from(groupSelection);
+            parts.push(currentUser.uid);
+            
+            const gData = {
+                uid: gid, name, isGroup: true, 
+                photo: 'group.jpg',
+                participants: parts, admins: [currentUser.uid]
+            };
+            
+            await setDoc(doc(db, "chats", gid), gData);
+            for(let uid of parts) {
+                await setDoc(doc(db, "users", uid, "contacts", gid), gData);
+            }
+            document.getElementById('group-modal').style.display = 'none';
+            toast('group_created'); 
+        }
+
+        // --- SOHBET MANTIĞI ---
+        window.openChat = (u) => {
+            activeChatUser = u;
+            activeChatId = u.isGroup ? u.uid : [currentUser.uid, u.uid].sort().join("_");
+            
+            document.getElementById('empty-view').style.display = 'none';
+            document.getElementById('chat-view').style.display = 'flex';
+
+            // UI Reset
+            document.getElementById('blocked-banner').style.display = 'none';
+            document.getElementById('main-input-area').style.display = 'flex';
+            document.getElementById('header-call-btn').style.display = 'block';
+            document.getElementById('header-video-btn').style.display = 'block';
+
+            if(window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.add('hidden');
+            }
+            
+            document.getElementById('chat-name').innerText = u.name;
+            document.getElementById('chat-img').src = u.photo || (u.isGroup ? 'group.jpg' : 'svyaz.jpg');
+            
+            if(statusListener) statusListener(); 
+            if(!u.isGroup) {
+                statusListener = onSnapshot(doc(db, "users", u.uid), (docSnap) => {
+                    const data = docSnap.data();
+                    const statusEl = document.getElementById('chat-status');
+                    
+                    const inputArea = document.getElementById('main-input-area');
+                    const warningBanner = document.getElementById('blocked-banner');
+                    const callBtn = document.getElementById('header-call-btn');
+                    const videoBtn = document.getElementById('header-video-btn');
+
+                    if (data && data.blockedUsers && data.blockedUsers.includes(currentUser.uid)) {
+                        inputArea.style.display = 'none';
+                        callBtn.style.display = 'none';
+                        videoBtn.style.display = 'none';
+                        warningBanner.style.display = 'flex';
+                        warningBanner.innerHTML = '🚫 ' + lang[currentLang].you_are_blocked;
+                    } else if (currentUser.blockedUsers && currentUser.blockedUsers.includes(u.uid)) {
+                         inputArea.style.display = 'flex';
+                         callBtn.style.display = 'block';
+                         videoBtn.style.display = 'block';
+                         warningBanner.style.display = 'none';
+                    } else {
+                        inputArea.style.display = 'flex';
+                        callBtn.style.display = 'block';
+                        videoBtn.style.display = 'block';
+                        warningBanner.style.display = 'none';
+                    }
+
+                    if(data && data.lastSeen) {
+                        const now = new Date();
+                        const last = data.lastSeen.toDate();
+                        const diffMins = (now - last) / 1000 / 60;
+                        
+                        if(diffMins < 5) {
+                            statusEl.innerText = lang[currentLang].online; 
+                            statusEl.style.color = "#007AFF";
+                        } else {
+                            statusEl.innerText = lang[currentLang].last_seen_status + formatTime(data.lastSeen); 
+                            statusEl.style.color = "gray";
+                        }
+                    } else {
+                        statusEl.innerText = "";
+                    }
+                });
+            } else {
+                document.getElementById('chat-status').innerText = (u.participants ? u.participants.length : '?') + lang[currentLang].members; 
+            }
+
+            const q = query(collection(db, "chats", activeChatId, "messages"), orderBy("time", "asc"));
+            onSnapshot(q, (snap) => {
+                const c = document.getElementById('messages-container');
+                c.innerHTML = "";
+                snap.forEach(d => renderMsg(d.data(), d.id, c));
+                c.scrollTop = c.scrollHeight;
+            });
+        }
+
+        window.closeChat = () => {
+            if(window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.remove('hidden');
+            } else {
+                document.getElementById('chat-view').style.display = 'none';
+                document.getElementById('empty-view').style.display = 'flex';
+                activeChatUser = null;
+                activeChatId = null;
+            }
+        }
+
+        function renderMsg(msg, id, container) {
+            const isMine = msg.from === currentUser.uid;
+            const div = document.createElement('div');
+            div.className = `msg-row ${isMine ? 'mine' : 'theirs'}`;
+            
+            let content = `<span>${msg.content}</span>`;
+            if(msg.type === 'image') content = `<img src="${msg.content}" class="msg-img" onclick="window.open(this.src)">`;
+            if(msg.type === 'video') content = `<video src="${msg.content}" class="msg-video" controls></video>`;
+            if(msg.type === 'audio') content = `<audio src="${msg.content}" controls></audio>`;
+
+            let meta = `<div style="display:flex; justify-content:flex-end; gap:5px; font-size:10px; opacity:0.7; margin-top:2px;">
+                ${msg.isEdited ? '(dzn)' : ''} ${formatTime(msg.time)}
+                ${isMine ? '✓' : ''}
+            </div>`;
+            
+            let likes = msg.likes && msg.likes.length > 0 ? `<div style="font-size:10px; background:white; padding:2px 5px; border-radius:10px; position:absolute; bottom:-10px; right:0; box-shadow:0 1px 2px rgba(0,0,0,0.1)">❤️ ${msg.likes.length}</div>` : '';
+
+            let replyUI = msg.replyTo ? `<div style="border-left:2px solid gray; padding-left:5px; font-size:11px; opacity:0.8; margin-bottom:2px;">${msg.replyTo.text}</div>` : '';
+
+            div.innerHTML = `
+                <div class="bubble" onclick="showCtx(event, '${id}', ${isMine}, '${msg.type}')">
+                    ${replyUI}
+                    ${content}
+                    ${meta}
+                    ${likes}
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        window.showCtx = (e, id, isMine, type) => {
+            e.stopPropagation();
+            const m = document.getElementById('ctx-menu');
+            m.style.display = 'block';
+            m.style.top = e.clientY + 'px';
+            m.style.left = e.clientX + 'px';
+            
+            m.innerHTML = `
+                <div class="ctx-item" onclick="initReply('${id}', 'Mesaj')">↩ ${lang[currentLang].reply_verb}</div> 
+                <div class="ctx-item" onclick="doLike('${id}')">❤️ ${lang[currentLang].like}</div> `;
+            if(isMine) {
+                m.innerHTML += `<div class="ctx-item" style="color:red" onclick="deleteMsg('${id}')">🗑 ${lang[currentLang].delete}</div>`; 
+            }
+            setTimeout(() => document.addEventListener('click', () => m.style.display = 'none', {once:true}), 0);
+        }
+
+        window.initReply = (id, text) => {
+            replyTo = { id, text };
+            document.getElementById('reply-bar').classList.add('show');
+            document.getElementById('reply-text').innerText = text;
+        }
+        window.cancelReply = () => {
+            replyTo = null;
+            document.getElementById('reply-bar').classList.remove('show');
+        }
+
+        window.doLike = async (id) => {
+            const ref = doc(db, "chats", activeChatId, "messages", id);
+            const snap = await getDoc(ref);
+            if(snap.exists()) {
+                const likes = snap.data().likes || [];
+                if(likes.includes(currentUser.uid)) {
+                    await updateDoc(ref, { likes: arrayRemove(currentUser.uid) });
+                } else {
+                    await updateDoc(ref, { likes: arrayUnion(currentUser.uid) });
+                }
+            }
+        }
+
+        window.deleteMsg = async (id) => {
+            if(confirm(lang[currentLang].delete_confirm)) await deleteDoc(doc(db, "chats", activeChatId, "messages", id)); 
+        }
+
+        window.toggleEmoji = () => {
+            const p = document.getElementById('emoji-picker');
+            if(p.style.display === 'grid') {
+                p.style.display = 'none';
+            } else {
+                p.style.display = 'grid';
+                p.innerHTML = ['😀','😂','❤️','👍','😎','🎉','🤔','😢','😡','👋','🔥','💩'].map(e => 
+                    `<div class="emoji-item" onclick="insertEmoji('${e}')">${e}</div>`
+                ).join('');
+            }
+        }
+        window.insertEmoji = (e) => {
+            document.getElementById('msg-text').value += e;
+        }
+
+        window.sendFile = (inp, type) => {
+            const file = inp.files[0];
+            if(!file) return;
+            
+            if(type === 'video' && file.size > 10 * 1024 * 1024) {
+                return toast('video_max'); 
+            }
+            if(type === 'image' && file.size > 2.5 * 1024 * 1024) {
+                return toast('photo_max'); 
+            }
+
+            toast('uploading'); 
+            const reader = new FileReader();
+            reader.onload = async () => {
+                try {
+                    await sendMsgReal(reader.result, type);
+                } catch(e) { toast("error" + e.message); }
+            };
+            reader.readAsDataURL(file);
+            inp.value = "";
+        }
+
+        window.startRec = async () => {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({audio:true});
+                mediaRecorder = new MediaRecorder(s);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.start();
+                document.getElementById('mic-btn').classList.add('recording');
+            } catch(e) { toast('mic_error'); } 
+        }
+        window.stopRec = () => {
+            if(!mediaRecorder) return;
+            mediaRecorder.stop();
+            document.getElementById('mic-btn').classList.remove('recording');
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(audioChunks, {type:'audio/webm'});
+                const reader = new FileReader();
+                reader.onload = () => sendMsgReal(reader.result, 'audio');
+                reader.readAsDataURL(blob);
+            }
+        }
+
+        window.sendText = () => {
+            const t = document.getElementById('msg-text').value.trim();
+            if(!t) return;
+            sendMsgReal(t, 'text');
+            document.getElementById('msg-text').value = "";
+            cancelReply();
+        }
+
+        async function sendMsgReal(content, type) {
+            await addDoc(collection(db, "chats", activeChatId, "messages"), {
+                from: currentUser.uid,
+                content, type,
+                time: serverTimestamp(),
+                status: 'delivered',
+                replyTo: replyTo,
+                likes: []
+            });
+        }
+        
+        // BAŞLANGIÇTA DİLİ YÜKLE
+        updateLanguage();
+    </script>
+</body>
+</html>
